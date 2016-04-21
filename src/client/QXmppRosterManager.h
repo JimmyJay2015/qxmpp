@@ -69,6 +69,8 @@ public:
     QXmppRosterManager(QXmppClient* stream);
     ~QXmppRosterManager();
 
+    // xuweinan@AKeyChat
+    void fetchRoster();
     bool isRosterReceived() const;
     QStringList getRosterBareJids() const;
     QXmppRosterIq::Item getRosterEntry(const QString& bareJid) const;

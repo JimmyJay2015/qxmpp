@@ -643,6 +643,9 @@ public:
     QList<QXmppVCardEmail> emails;
     QList<QXmppVCardPhone> phones;
     QXmppVCardOrganization organization;
+    
+    // 增加自定义属性
+    QMap<QString, QString> extensionProperties;
 };
 
 /// Constructs a QXmppVCardIq for the specified recipient.
@@ -696,7 +699,9 @@ bool operator==(const QXmppVCardIq &left, const QXmppVCardIq &right)
             left.addresses() == right.addresses() &&
             left.emails() == right.emails() &&
             left.phones() == right.phones() &&
-            left.organization() == right.organization();
+            left.organization() == right.organization() &&
+            left.extensionProperties() == right.extensionProperties();
+
 }
 
 /// \brief Checks if two VCard objects represent different VCards.
@@ -958,6 +963,32 @@ void QXmppVCardIq::setOrganization(const QXmppVCardOrganization &org)
 {
     d->organization = org;
 }
+// 自定义属性
+QMap<QString, QString> QXmppVCardIq::extensionProperties() const
+{
+    return d->extensionProperties;
+}
+
+void QXmppVCardIq::registerExtensionProperties(const QStringList &keys) {
+    foreach(QString key, keys)
+    {
+        if (!d->extensionProperties.contains(key)) {
+            d->extensionProperties[key] = "";
+        }
+    }
+}
+
+void QXmppVCardIq::addExtensionProperty(const QString &key, const QString &value)
+{
+    d->extensionProperties[key] = value;
+}
+
+void QXmppVCardIq::removeExtensionProperty(const QString &key)
+{
+    if (d->extensionProperties.contains(key)) {
+        d->extensionProperties.remove(key);
+    }
+}
 
 /// \cond
 bool QXmppVCardIq::isVCard(const QDomElement &nodeRecv)
@@ -1003,6 +1034,19 @@ void QXmppVCardIq::parseElementFromChild(const QDomElement& nodeRecv)
     }
 
     d->organization.parse(cardElement);
+    
+    // 自定义属性
+    QMap<QString ,QString>::const_iterator i = d->extensionProperties.constBegin();
+    while (i != d->extensionProperties.constEnd()) {
+
+        QDomElement property = cardElement.firstChildElement(i.key());
+        if (!property.isNull()) {
+            d->extensionProperties[i.key()] = property.text();
+        }
+
+        i++;
+    }
+
 }
 
 void QXmppVCardIq::toXmlElementFromChild(QXmlStreamWriter *writer) const
@@ -1051,6 +1095,16 @@ void QXmppVCardIq::toXmlElementFromChild(QXmlStreamWriter *writer) const
         helperToXmlAddTextElement(writer, "URL", d->url);
 
     d->organization.toXml(writer);
+    
+    // 自定义属性
+    QMap<QString ,QString>::const_iterator i = d->extensionProperties.constBegin();
+    while (i != d->extensionProperties.constEnd()) {
+        if (!i.value().isNull()) {
+            helperToXmlAddTextElement(writer, i.key(), i.value());
+        }
+
+        i++;
+    }
 
     writer->writeEndElement();
 }

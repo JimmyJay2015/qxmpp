@@ -113,8 +113,8 @@ QXmppOutgoingClientPrivate::QXmppOutgoingClientPrivate(QXmppOutgoingClient *qq)
 }
 
 void QXmppOutgoingClientPrivate::connectToHost(const QString &host, quint16 port)
-{
-    q->info(QString("Connecting to %1:%2").arg(host, QString::number(port)));
+{    
+		q->info(QString("Connecting to XMPP server %1:%2").arg(host, QString::number(port)));
 
     // override CA certificates if requested
     if (!config.caCertificates().isEmpty())
@@ -271,7 +271,9 @@ void QXmppOutgoingClient::_q_socketDisconnected()
 
 void QXmppOutgoingClient::socketSslErrors(const QList<QSslError> &errors)
 {
-    // log errors
+    // log errors    
+    info(QString("ssl socket error; %1"));
+
     warning("SSL errors");
     for(int i = 0; i< errors.count(); ++i)
         warning(errors.at(i).errorString());
@@ -287,7 +289,9 @@ void QXmppOutgoingClient::socketSslErrors(const QList<QSslError> &errors)
 void QXmppOutgoingClient::socketError(QAbstractSocket::SocketError socketError)
 {
     Q_UNUSED(socketError);
-    emit error(QXmppClient::SocketError);
+    info(QString("socket error; %1").arg(socketError));
+
+		emit error(QXmppClient::SocketError);
 }
 
 /// \cond
@@ -615,8 +619,10 @@ void QXmppOutgoingClient::handleStanza(const QDomElement &nodeRecv)
             // extensions
 
             // XEP-0078: Non-SASL Authentication
-            else if(id == d->nonSASLAuthId && type == "result")
+            else if(id == d->nonSASLAuthId)
             {
+                if (type == "result")
+								{
                 // successful Non-SASL Authentication
                 debug("Authenticated (Non-SASL)");
                 d->isAuthenticated = true;
@@ -624,6 +630,34 @@ void QXmppOutgoingClient::handleStanza(const QDomElement &nodeRecv)
                 // xmpp connection made
                 d->sessionStarted = true;
                 emit connected();
+            		}
+            	 	else if (type == "error")
+                {
+                    /*
+                     * xuweinan@AKeyChat
+                     * <iq type="error" id="qxmpp4" to="121.199.33.75/9e925b3">
+                     * <query xmlns="jabber:iq:auth"><username>u13999999999</username><digest>eea6f5bc776a311a49c9c8d1fc73ab658c08720a</digest><resource>desktop.osx.A8:66:7F:1C:E2:CA</resource></query>
+                     * <error type="auth" code="401"><not-authorized xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"/>
+                     * <text xmlns="urn:ietf:params:xml:ns:xmpp-stanzas">{"description":"错误的用户名或密码，还有3次机会"}</text>
+                     * </error></iq>
+                     */
+
+                    QDomElement errorElement = nodeRecv.firstChildElement("error");
+                    QString code = errorElement.attribute("code");
+                    if (code == "401") {
+                        d->xmppStreamError = QXmppStanza::Error::NotAuthorized;
+                    }
+                    else if (code == "403") {
+                        d->xmppStreamError = QXmppStanza::Error::Forbidden;
+                    }
+                    else if (code == "409") {
+                        d->xmppStreamError = QXmppStanza::Error::Conflict;
+                    }
+
+                    emit error(QXmppClient::XmppStreamError);
+                    warning("IQ Authentication failure");
+                    disconnectFromHost();
+                }
             }
             else if(QXmppNonSASLAuthIq::isNonSASLAuthIq(nodeRecv))
             {

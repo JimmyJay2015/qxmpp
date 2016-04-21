@@ -500,6 +500,27 @@ void QXmppConfiguration::setNonSASLAuthMechanism(
     d->nonSASLAuthMechanism = mech;
 }
 
+// xuweinan@AKeyChat
+bool QXmppConfiguration::sendInitialPresence() const
+{
+    return d->sendIntialPresence;
+}
+
+void QXmppConfiguration::setSendInitialPresence(bool send)
+{
+    d->sendIntialPresence = send;
+}
+
+bool QXmppConfiguration::sendRosterRequest() const
+{
+    return d->sendRosterRequest;
+}
+
+void QXmppConfiguration::setSendRosterRequest(bool send)
+{
+    d->sendRosterRequest = send;
+}
+
 /// Returns the preferred SASL authentication mechanism.
 ///
 /// Default value: "DIGEST-MD5"

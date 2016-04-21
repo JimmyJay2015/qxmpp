@@ -72,6 +72,11 @@ public:
     /// \cond
     QStringList discoveryFeatures() const;
     bool handleStanza(const QDomElement &element);
+    
+    // 增加自定义属性
+    QStringList extensionProperties() const;
+    void registerExtensionProperties(const QStringList &keys);
+
     /// \endcond
 
 signals:
@@ -85,6 +90,8 @@ signals:
 
 private:
     QXmppVCardManagerPrivate *d;
+    
+    QStringList _extensionProperties;
 };
 
 #endif // QXMPPVCARDMANAGER_H

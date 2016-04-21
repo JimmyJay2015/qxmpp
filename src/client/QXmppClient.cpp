@@ -494,9 +494,9 @@ void QXmppClient::_q_streamConnected()
     // notify managers
     emit connected();
     emit stateChanged(QXmppClient::ConnectedState);
-
-    // send initial presence
-    if (d->stream->isAuthenticated())
+    
+    // send initial presence (xuweinan@AKeyChat)
+    if (d->stream->isAuthenticated() && d->stream->configuration().sendInitialPresence())
         sendPacket(d->clientPresence);
 }
 

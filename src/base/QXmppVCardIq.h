@@ -277,6 +277,12 @@ public:
     QXmppVCardOrganization organization() const;
     void setOrganization(const QXmppVCardOrganization&);
 
+    // 增加扩展属性：xuweinan@AKeyChat
+    QMap<QString, QString> extensionProperties() const;
+    void registerExtensionProperties(const QStringList &keys);
+    void addExtensionProperty(const QString &key, const QString &value);
+    void removeExtensionProperty(const QString &key);
+
     /// \cond
     static bool isVCard(const QDomElement &element);
     /// \endcond

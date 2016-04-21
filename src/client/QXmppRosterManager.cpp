@@ -98,8 +98,17 @@ bool QXmppRosterManager::acceptSubscription(const QString &bareJid, const QStrin
 }
 
 /// Upon XMPP connection, request the roster.
-///
+/// xuweinan@AKeyChat
 void QXmppRosterManager::_q_connected()
+{
+    if (client()->configuration().sendRosterRequest())
+    {
+        fetchRoster();
+    }
+}
+
+// xuweinan@AKeyChat
+void QXmppRosterManager::fetchRoster()
 {
     QXmppRosterIq roster;
     roster.setType(QXmppIq::Get);

@@ -39,6 +39,8 @@ QXmppVCardManager::QXmppVCardManager()
     : d(new QXmppVCardManagerPrivate)
 {
     d->isClientVCardReceived = false;
+
+    _extensionProperties = QStringList();
 }
 
 QXmppVCardManager::~QXmppVCardManager()
@@ -100,6 +102,16 @@ bool QXmppVCardManager::isClientVCardReceived() const
     return d->isClientVCardReceived;
 }
 
+// 自定义属性
+QStringList QXmppVCardManager::extensionProperties() const
+{
+    return _extensionProperties;
+}
+
+void QXmppVCardManager::registerExtensionProperties(const QStringList &keys) {
+    _extensionProperties = keys;
+}
+
 /// \cond
 QStringList QXmppVCardManager::discoveryFeatures() const
 {
@@ -112,6 +124,8 @@ bool QXmppVCardManager::handleStanza(const QDomElement &element)
     if(element.tagName() == "iq" && QXmppVCardIq::isVCard(element))
     {
         QXmppVCardIq vCardIq;
+        // 注册自定义属性
+        vCardIq.registerExtensionProperties(_extensionProperties);
         vCardIq.parse(element);
 
         if (vCardIq.from().isEmpty()) {

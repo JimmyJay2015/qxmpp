@@ -125,6 +125,13 @@ public:
 
     bool useNonSASLAuthentication() const;
     void setUseNonSASLAuthentication(bool);
+    
+    // xuweinan@AKeyChat
+    bool sendInitialPresence() const;
+    void setSendInitialPresence(bool);
+
+    bool sendRosterRequest() const;
+    void setSendRosterRequest(bool);
 
     bool ignoreSslErrors() const;
     void setIgnoreSslErrors(bool);
