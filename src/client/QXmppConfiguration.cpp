@@ -49,6 +49,9 @@ public:
     // Windows Live
     QString windowsLiveAccessToken;
 
+    // asim desktop  Jimmy@Akey.me
+    QString ASIMSeesionID;
+
     // default is false
     bool autoAcceptSubscriptions;
     // default is true
@@ -519,6 +522,16 @@ bool QXmppConfiguration::sendRosterRequest() const
 void QXmppConfiguration::setSendRosterRequest(bool send)
 {
     d->sendRosterRequest = send;
+}
+
+// ASIM desktop Jimmy@akey.me
+void QXmppConfiguration::setASIMSessionID(const QString sessionID)
+{
+    d->ASIMSeesionID = sessionID;
+}
+QString QXmppConfiguration::ASIMSessionID() const
+{
+    return d->ASIMSeesionID;
 }
 
 /// Returns the preferred SASL authentication mechanism.

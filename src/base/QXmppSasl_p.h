@@ -66,6 +66,10 @@ public:
     QString password() const;
     void setPassword(const QString &password);
 
+    // asim desktop Jimmy@akey.me
+    QString asimSessionID() const;
+    void setASIMSessionID(const QString);
+
     virtual QString mechanism() const = 0;
     virtual bool respond(const QByteArray &challenge, QByteArray &response) = 0;
 
@@ -270,6 +274,26 @@ public:
     bool respond(const QByteArray &challenge, QByteArray &response);
 
 private:
+    int m_step;
+};
+
+// Jimmy@akey.me
+class QXmppSaslClientASIMDesktop : public QXmppSaslClient
+{
+public:
+    QXmppSaslClientASIMDesktop(QObject *parent = 0);
+    QString mechanism() const;
+    bool respond(const QByteArray &challenge, QByteArray &response);
+
+    QMap<QByteArray, QByteArray> parseMessage(const QByteArray &ba);
+    QByteArray serializeMessage(const QMap<QByteArray, QByteArray> &map);
+    QByteArray asimResponse();
+private:
+    QByteArray m_cnonce;
+    QByteArray m_nc;
+    QByteArray m_nonce;
+    QByteArray m_secret;
+
     int m_step;
 };
 

@@ -136,6 +136,10 @@ public:
     bool ignoreSslErrors() const;
     void setIgnoreSslErrors(bool);
 
+    // asim desktop Jimmy@akey.me
+    QString ASIMSessionID() const;
+    void setASIMSessionID(const QString);
+
     QXmppConfiguration::StreamSecurityMode streamSecurityMode() const;
     void setStreamSecurityMode(QXmppConfiguration::StreamSecurityMode mode);
 

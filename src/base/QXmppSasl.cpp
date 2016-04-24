@@ -217,6 +217,7 @@ public:
     QString serviceType;
     QString username;
     QString password;
+    QString asimSessionID;
 };
 
 QXmppSaslClient::QXmppSaslClient(QObject *parent)
@@ -234,7 +235,7 @@ QXmppSaslClient::~QXmppSaslClient()
 
 QStringList QXmppSaslClient::availableMechanisms()
 {
-    return QStringList() << "PLAIN" << "DIGEST-MD5" << "ANONYMOUS" << "X-FACEBOOK-PLATFORM" << "X-MESSENGER-OAUTH2" << "X-OAUTH2";
+    return QStringList() << "PLAIN" << "DIGEST-MD5" << "ANONYMOUS" << "X-FACEBOOK-PLATFORM" << "X-MESSENGER-OAUTH2" << "X-OAUTH2" << "ASIM-DESKTOP"/*Jimmy@akey.me*/;
 }
 
 /// Creates an SASL client for the given mechanism.
@@ -253,6 +254,8 @@ QXmppSaslClient* QXmppSaslClient::create(const QString &mechanism, QObject *pare
         return new QXmppSaslClientWindowsLive(parent);
     } else if (mechanism == "X-OAUTH2") {
         return new QXmppSaslClientGoogle(parent);
+    } else if (mechanism == "ASIM-DESKTOP") { // Jimmy@akey.me
+        return new QXmppSaslClientASIMDesktop(parent);
     } else {
         return 0;
     }
@@ -305,6 +308,16 @@ void QXmppSaslClient::setUsername(const QString &username)
 QString QXmppSaslClient::password() const
 {
     return d->password;
+}
+
+// asim desktop Jimmy@akey.me
+void QXmppSaslClient::setASIMSessionID(const QString sessionID)
+{
+    d->asimSessionID = sessionID;
+}
+QString QXmppSaslClient::asimSessionID() const
+{
+    return d->asimSessionID;
 }
 
 /// Sets the password.
@@ -546,6 +559,185 @@ bool QXmppSaslClientWindowsLive::respond(const QByteArray &challenge, QByteArray
         warning("QXmppSaslClientWindowsLive : Invalid step");
         return false;
     }
+}
+
+// Jimmy@akey.me
+QXmppSaslClientASIMDesktop::QXmppSaslClientASIMDesktop(QObject *parent)
+    : QXmppSaslClient(parent)
+    , m_nc("00000001")
+    , m_step(0)
+{
+    m_cnonce = QString::fromUtf8(generateNonce()).replace(QRegExp("[+/=]"),"").toUtf8();
+}
+
+QString QXmppSaslClientASIMDesktop::mechanism() const
+{
+    return "ASIM-DESKTOP";
+}
+
+QMap<QByteArray, QByteArray> QXmppSaslClientASIMDesktop::parseMessage(const QByteArray &ba)
+{
+    // 格式 realm="192.168.1.64",nonce="ciAepB4asVdyooBOFeRPdiUHoVZgLdw/SdofWsaS",qop="auth",charset=utf-8,algorithm=md5-sess
+    QMap<QByteArray, QByteArray> map;
+    int startIndex = 0;
+    int pos = 0;
+    while ((pos = ba.indexOf("=", startIndex)) >= 0)
+    {
+        // key get name and skip equals
+        const QByteArray key = ba.mid(startIndex, pos - startIndex).trimmed();
+        pos++;
+
+        // check whether string is quoted
+        if (ba.at(pos) == '"')
+        {
+            // skip opening quote
+            pos++;
+            int endPos = ba.indexOf('"', pos);
+            // skip quoted quotes
+            while (endPos >= 0 && ba.at(endPos - 1) == '\\')
+                endPos = ba.indexOf('"', endPos + 1);
+            if (endPos < 0)
+            {
+                qWarning("Unfinished quoted string");
+                return map;
+            }
+            // unquote
+            QByteArray value = ba.mid(pos, endPos - pos);
+            value.replace("\\\"", "\"");
+            value.replace("\\\\", "\\");
+            map[key] = value;
+            // skip closing quote and comma
+            startIndex = endPos + 2;
+        } else {
+            // non-quoted string
+            int endPos = ba.indexOf(',', pos);
+            if (endPos < 0)
+                endPos = ba.size();
+            map[key] = ba.mid(pos, endPos - pos);
+            // skip comma
+            startIndex = endPos + 1;
+        }
+    }
+    return map;
+}
+
+QByteArray QXmppSaslClientASIMDesktop::serializeMessage(const QMap<QByteArray, QByteArray> &map)
+{
+    QByteArray ba;
+    foreach (const QByteArray &key, map.keys())
+    {
+        if (!ba.isEmpty())
+            ba.append(',');
+        ba.append(key + "=");
+        QByteArray value = map[key];
+        ba.append(value);
+        /*const char *separators = "()<>@,;:\\\"/[]?={} \t";
+        bool quote = false;
+        for (const char *c = separators; *c; c++)
+        {
+            if (value.contains(*c))
+            {
+                quote = true;
+                break;
+            }
+        }
+        if (quote)
+        {
+            value.replace("\\", "\\\\");
+            value.replace("\"", "\\\"");
+            ba.append("\"" + value + "\"");
+        }
+        else
+            ba.append(value);*/
+    }
+    return ba;
+}
+
+QByteArray QXmppSaslClientASIMDesktop::asimResponse()
+{
+    info(QString("QXmppSaslClientASIMDesktop::asimResponse asimResponse string:%1").arg(QString("%1:%2:%3").arg(QString::fromUtf8(m_nonce), password(), QString::fromUtf8(m_cnonce))));
+    const QByteArray response = QString("%1:%2:%3").arg(QString::fromUtf8(m_nonce), password(), QString::fromUtf8(m_cnonce)).toUtf8();
+    return QCryptographicHash::hash(response, QCryptographicHash::Md5).toHex();
+}
+
+bool QXmppSaslClientASIMDesktop::respond(const QByteArray &challenge, QByteArray &response)
+{
+    info(QString("QXmppSaslClientASIMDesktop::respond challenge:%1").arg(QString::fromUtf8(challenge)));
+    Q_UNUSED(challenge);
+    const QByteArray digestUri = QString("%1/%2").arg("xmpp", host()).toUtf8();
+
+    if (m_step == 0) {
+        // 第一步 没有接收的数据，需要发送<auth mechanism=" ASIM-DESKTOP" xmlns="urn:ietf:params:xml:ns:xmpp-sasl"></auth>的数据为空
+        response = QByteArray();
+        m_step++;
+        return true;
+    } else if (m_step == 1) {
+        // 第二步 接收 <challenge xmlns="urn:ietf:params:xml:ns:xmpp-sasl">xxxxxxxxxxxxxxxx</challenge>，
+        // 其内容base64解码后的格式为realm="192.168.1.64",nonce="ciAepB4asVdyooBOFeRPdiUHoVZgLdw/SdofWsaS",qop="auth",charset=utf-8,algorithm=md5-sess
+        // 需发送响应数据sessionId="xxxxxxxxxx",realm="192.168.1.64",cnonce="9830d686182471a5d4b9765c0dcde578004908ba322cdd5cbd6370046680a663",nc=00000001,qop=auth,digest-uri="xmpp/192.168.1.64",response=08fa8fde4e84d25f3c630b5c6408f458,charset=utf-8,nonce="ciAepB4asVdyooBOFeRPdiUHoVZgLdw/SdofWsaS", asim-response="xxxxxxx"
+        // 响应数据base64编码，<response xmlns="urn:ietf:params:xml:ns:xmpp-sasl">xxxxxxxxxxx</response>
+        const QMap<QByteArray, QByteArray> input = this->parseMessage(challenge);
+
+        if (!input.contains("nonce")) {
+            warning("QXmppSaslClientASIMDesktop : Invalid input on step 1 because of the lost of nonce");
+            return false;
+        }
+
+        // determine realm
+        const QByteArray realm = input.value("realm");
+
+        // determine quality of protection
+        const QList<QByteArray> qops = input.value("qop", "auth").split(',');
+        if (!qops.contains("auth")) {
+            warning("QXmppSaslClientASIMDesktop : Invalid quality of protection");
+            return false;
+        }
+
+        m_nonce = input.value("nonce");
+        m_secret = QCryptographicHash::hash(
+            username().toUtf8() + ":" + realm + ":" + password().toUtf8(),
+            QCryptographicHash::Md5);
+
+        // Build response
+        QMap<QByteArray, QByteArray> output;
+        //output["username"] = username().toUtf8();
+        //if (!realm.isEmpty())
+        //    output["realm"] = realm;
+        output["qop"] = "auth";
+        output["sessionId"] = asimSessionID().toUtf8();
+        output["cnonce"] = m_cnonce;
+        output["nonce"] = m_nonce;
+        //output["nc"] = m_nc;
+        //output["digest-uri"] = digestUri;
+        //output["response"] = calculateDigest("AUTHENTICATE", digestUri, m_secret, m_nonce, m_cnonce, m_nc);
+        output["response"] = this->asimResponse();
+        //output["charset"] = "utf-8";
+        //output["resource="] = resource();
+        //output["app_plt"] = "utf-8";
+        //output["version_code="] = "utf-8";
+
+        response = QXmppSaslClientASIMDesktop::serializeMessage(output);
+
+        info(QString("QXmppSaslClientASIMDesktop::respond response:%1").arg(QString::fromUtf8(response)));
+        m_step++;
+        return true;
+    } else if (m_step == 2) {
+        const QMap<QByteArray, QByteArray> input = QXmppSaslDigestMd5::parseMessage(challenge);
+
+        // check new challenge
+        if (input.value("rspauth") != calculateDigest(QByteArray(), digestUri, m_secret, m_nonce, m_cnonce, m_nc)) {
+            warning(QString("QXmppSaslClientASIMDesktop : Invalid challenge on step 2"));
+            return false;
+        }
+
+        response = QByteArray();
+        m_step++;
+        return true;
+    } else {
+        warning("QXmppSaslClientASIMDesktop : Invalid step");
+        return false;
+    }
+
 }
 
 class QXmppSaslServerPrivate

@@ -440,6 +440,10 @@ void QXmppOutgoingClient::handleStanza(const QDomElement &nodeRecv)
             } else if (d->saslClient->mechanism() == "X-OAUTH2") {
                 d->saslClient->setUsername(configuration().user());
                 d->saslClient->setPassword(configuration().googleAccessToken());
+            } else if (d->saslClient->mechanism() == "ASIM-DESKTOP") {
+                d->saslClient->setUsername(configuration().user());
+                d->saslClient->setPassword(configuration().password());
+                d->saslClient->setASIMSessionID(configuration().ASIMSessionID());
             } else {
                 d->saslClient->setUsername(configuration().user());
                 d->saslClient->setPassword(configuration().password());
